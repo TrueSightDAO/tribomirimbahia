@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="Public transparency ledger for Tribo Bahia Mirim Capoeira donations. Every Stripe donation, TransferWise conversion, and Pix disbursement to Bico Duro, verifiable on-chain.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tribo Bahia Mirim — Donation Ledger Explorer</title>
+
+    <meta property="og:title" content="Tribo Bahia Mirim — Donation Ledger Explorer">
+    <meta property="og:description" content="Public transparency ledger for Tribo Bahia Mirim Capoeira donations.">
+    <meta property="og:image" content="https://capoeira.agroverse.shop/assets/images/capoeira-sunset-beach.jpg">
+    <meta property="og:url" content="https://TrueSightDAO.github.io/tribomirimbahia/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Tribo Bahia Mirim Explorer">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Tribo Bahia Mirim — Donation Ledger Explorer">
+    <meta name="twitter:description" content="Public transparency ledger for Tribo Bahia Mirim Capoeira donations.">
+    <meta name="twitter:image" content="https://capoeira.agroverse.shop/assets/images/capoeira-sunset-beach.jpg">
+
+    <link rel="icon" type="image/jpeg" sizes="192x192" href="https://www.agroverse.shop/assets/images/logo/favicon-192x192.jpeg">
+    <link rel="icon" type="image/jpeg" sizes="32x32" href="https://www.agroverse.shop/assets/images/logo/favicon-32x32.jpeg">
+    <link rel="shortcut icon" type="image/jpeg" href="https://www.agroverse.shop/assets/images/logo/favicon-32x32.jpeg">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-primary: #0a0e14;
+            --bg-secondary: #141a22;
+            --bg-card: #161c24;
+            --bg-hover: #1c2530;
+            --border: #21262d;
+            --border-light: #30363d;
+            --text-primary: #c9d1d9;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
+            --accent-green: #3fb950;
+            --accent-green-bg: rgba(63,185,80,0.12);
+            --accent-blue: #58a6ff;
+            --accent-blue-bg: rgba(88,166,255,0.12);
+            --accent-amber: #d2991d;
+            --accent-amber-bg: rgba(210,153,29,0.12);
+            --accent-red: #f85149;
+            --accent-red-bg: rgba(248,81,73,0.12);
+            --accent-purple: #a371f7;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-sans: 'Inter', -apple-system, sans-serif;
+            --radius: 6px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: var(--font-sans);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* --- Header --- */
+        body > header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .header-brand .dot { color: var(--accent-green); }
+
+        .header-links {
+            display: flex;
+            gap: 1.25rem;
+            font-size: 0.85rem;
+        }
+
+        .header-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        .header-links a:hover { color: var(--text-primary); }
+
+        .header-links .live-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: var(--accent-green);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            background: var(--accent-green-bg);
+            padding: 0.2rem 0.6rem;
+            border-radius: var(--radius);
+        }
+
+        .header-links .live-badge .pulse {
+            width: 7px; height: 7px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* --- Main --- */
+        main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        /* --- Summary Cards --- */
+        .summary-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.5rem;
+        }
+
+        .summary-card .card-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-card .card-value {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .summary-card .card-sub {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .summary-card.green .card-value { color: var(--accent-green); }
+        .summary-card.amber .card-value { color: var(--accent-amber); }
+        .summary-card.blue .card-value { color: var(--accent-blue); }
+        .summary-card.purple .card-value { color: var(--accent-purple); }
+
+        /* --- Statement --- */
+        .ledger-statement {
+            text-align: center;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.5rem;
+            background: var(--accent-green-bg);
+            border: 1px solid rgba(63,185,80,0.2);
+            border-radius: var(--radius);
+            color: var(--accent-green);
+            font-size: 0.9rem;
+        }
+
+        /* --- Filter Bar --- */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            align-items: center;
+        }
+
+        .filter-bar input[type="search"] {
+            flex: 1;
+            min-width: 200px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.55rem 1rem;
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+        }
+
+        .filter-bar input[type="search"]::placeholder { color: var(--text-muted); }
+        .filter-bar input[type="search"]:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(88,166,255,0.15);
+        }
+
+        .filter-bar select {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.55rem 1rem;
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
+        .filter-bar select:focus { outline: none; border-color: var(--accent-blue); }
+
+        .result-count {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Transaction Table --- */
+        .tx-table-wrap {
+            overflow-x: auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+
+        .tx-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+
+        .tx-table thead th {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .tx-table tbody td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .tx-table tbody tr:hover { background: var(--bg-hover); }
+        .tx-table tbody tr:last-child td { border-bottom: none; }
+
+        .tx-table .tx-date {
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+        }
+
+        .tx-table .tx-type {
+            display: inline-block;
+            padding: 0.15rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.73rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .tx-type.stripe { background: var(--accent-green-bg); color: var(--accent-green); }
+        .tx-type.transferwise { background: var(--accent-blue-bg); color: var(--accent-blue); }
+        .tx-type.pix { background: var(--accent-amber-bg); color: var(--accent-amber); }
+        .tx-type.other { background: var(--accent-purple-bg); color: var(--accent-purple); }
+
+        .tx-table .tx-amount {
+            font-family: var(--font-mono);
+            font-weight: 600;
+        }
+
+        .tx-table .tx-amount.positive { color: var(--accent-green); }
+        .tx-table .tx-amount.negative { color: var(--accent-red); }
+        .tx-table .tx-amount.neutral { color: var(--text-primary); }
+
+        .tx-table .tx-ref {
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: var(--accent-blue);
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+        }
+
+        .tx-table .tx-ref a { color: var(--accent-blue); text-decoration: none; }
+        .tx-table .tx-ref a:hover { text-decoration: underline; }
+
+        .tx-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .tx-status .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .tx-status.completed { color: var(--accent-green); }
+        .tx-status.completed .dot { background: var(--accent-green); }
+        .tx-status.pending { color: var(--accent-amber); }
+        .tx-status.pending .dot { background: var(--accent-amber); }
+        .tx-status.failed { color: var(--accent-red); }
+        .tx-status.failed .dot { background: var(--accent-red); }
+
+        /* --- States --- */
+        .loading-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .loading-state .spinner {
+            display: inline-block;
+            width: 28px; height: 28px;
+            border: 2.5px solid var(--border-light);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 1rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state h3 {
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .error-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--accent-red);
+        }
+
+        /* --- Footer --- */
+        body > footer {
+            border-top: 1px solid var(--border);
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        body > footer p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin: 0.25rem 0;
+        }
+
+        body > footer a { color: var(--accent-blue); }
+
+        .data-source {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+
+        /* --- Responsive --- */
+        @media (max-width: 768px) {
+            .summary-row { grid-template-columns: repeat(2, 1fr); }
+            .header-inner { flex-direction: column; align-items: flex-start; }
+            .tx-table-wrap { font-size: 0.8rem; }
+            main { padding: 1rem; }
+        }
+
+        @media (max-width: 480px) {
+            .summary-row { grid-template-columns: 1fr; }
+        }
+
+        /* --- Update ticker --- */
+        .last-updated {
+            text-align: right;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <a href="/" class="header-brand">
+                <span class="dot">●</span> Tribo Bahia Mirim Explorer
+            </a>
+            <div class="header-links">
+                <span class="live-badge"><span class="pulse"></span>Live</span>
+                <a href="https://capoeira.agroverse.shop">Practice Platform</a>
+                <a href="https://github.com/TrueSightDAO/treasury-cache" target="_blank" rel="noopener">Data Source ↗</a>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- Statement -->
+        <div class="ledger-statement">
+            Every donation, minus processing fees, goes directly to Bico Duro and the kids. TrueSight DAO takes no cut.
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-row" id="summary-row">
+            <div class="summary-card green">
+                <div class="card-label">Total Inflow (USD)</div>
+                <div class="card-value" id="sum-inflow">—</div>
+                <div class="card-sub" id="sum-tx-count"></div>
+            </div>
+            <div class="summary-card amber">
+                <div class="card-label">Total Fees</div>
+                <div class="card-value" id="sum-fees">—</div>
+                <div class="card-sub">Stripe + TransferWise</div>
+            </div>
+            <div class="summary-card blue">
+                <div class="card-label">Net to Program (BRL)</div>
+                <div class="card-value" id="sum-net">—</div>
+                <div class="card-sub">After all fees, before Pix</div>
+            </div>
+            <div class="summary-card purple">
+                <div class="card-label">Ledger Entries</div>
+                <div class="card-value" id="sum-entries">—</div>
+                <div class="card-sub" id="sum-last-date"></div>
+            </div>
+        </div>
+
+        <!-- Last Updated -->
+        <div class="last-updated" id="last-updated">Loading...</div>
+
+        <!-- Filters -->
+        <div class="filter-bar">
+            <input type="search" id="tx-search" placeholder="Search by reference, description, amount..." oninput="applyFilters()">
+            <select id="tx-type-filter" onchange="applyFilters()">
+                <option value="">All Types</option>
+                <option value="stripe_donation">Stripe Donation</option>
+                <option value="transferwise_fx">TransferWise FX</option>
+                <option value="pix_outbound">Pix Outbound</option>
+            </select>
+            <span class="result-count" id="result-count"></span>
+        </div>
+
+        <!-- Table -->
+        <div class="tx-table-wrap">
+            <table class="tx-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                        <th>Gross</th>
+                        <th>Fees</th>
+                        <th>Net</th>
+                        <th>Reference</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="tx-body">
+                    <tr><td colspan="8" class="loading-state"><div class="spinner"></div><p>Loading ledger data...</p></td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="empty-state" class="empty-state hidden">
+            <h3>Ledger Coming Soon</h3>
+            <p>The Tribo Bahia Mirim donation ledger is being initialized. Once the first donation from <a href="https://capoeira.agroverse.shop" style="color:var(--accent-blue)">capoeira.agroverse.shop</a> clears, transactions will appear here in real time.</p>
+        </div>
+
+        <div id="error-state" class="error-state hidden">
+            <p id="error-msg">Could not load ledger data.</p>
+        </div>
+    </main>
+
+    <footer>
+        <p>Data sourced from <span class="data-source">github.com/TrueSightDAO/treasury-cache</span></p>
+        <p><a href="https://github.com/TrueSightDAO/treasury-cache/blob/main/tribomirimbahia_donations.json" target="_blank" rel="noopener">View raw ledger JSON ↗</a></p>
+        <p style="margin-top:0.75rem"><a href="https://capoeira.agroverse.shop">Practice Platform</a> &middot; <a href="https://truesight.me">TrueSight DAO</a> &middot; <a href="https://agroverse.shop">Agroverse</a></p>
+    </footer>
+
+    <script>
+        (function () {
+            'use strict';
+
+            const DATA_URL = 'https://raw.githubusercontent.com/TrueSightDAO/treasury-cache/main/tribomirimbahia_donations.json';
+            let allTransactions = [];
+
+            /**
+             * Format currency with symbol, 2 decimal places, and commas for thousands.
+             */
+            function fmtUSD(n) {
+                if (n == null || isNaN(n)) return '—';
+                return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function fmtBRL(n) {
+                if (n == null || isNaN(n)) return '—';
+                return 'R$' + Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            function fmtDate(iso) {
+                if (!iso) return '—';
+                const d = new Date(iso);
+                return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) +
+                    ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            }
+
+            function typeLabel(t) {
+                const map = {
+                    stripe_donation: 'Stripe',
+                    transferwise_fx: 'TransferWise',
+                    pix_outbound: 'Pix',
+                    stripe: 'Stripe',
+                    transferwise: 'TransferWise',
+                    pix: 'Pix'
+                };
+                return map[t] || t || 'Other';
+            }
+
+            function typeClass(t) {
+                const tLower = (t || '').toLowerCase();
+                if (tLower.includes('stripe')) return 'stripe';
+                if (tLower.includes('transferwise') || tLower.includes('tw_')) return 'transferwise';
+                if (tLower.includes('pix')) return 'pix';
+                return 'other';
+            }
+
+            /**
+             * Normalize transaction objects to a common shape regardless of schema.
+             * The other Claude process may evolve the schema — we adapt.
+             */
+            function normalizeTx(tx) {
+                const t = tx.type || tx.tx_type || 'other';
+                const isStripe = t.includes('stripe') || t.includes('donation');
+                const isTW = t.includes('transferwise') || t.includes('tw_') || t.includes('fx');
+                const isPix = t.includes('pix') || t.includes('outbound');
+
+                let gross, fees, net, currency;
+
+                if (isStripe) {
+                    gross = tx.amount_usd ?? tx.gross_amount ?? tx.amount ?? 0;
+                    fees = tx.stripe_fee_usd ?? tx.fees ?? tx.fee ?? 0;
+                    net = tx.net_usd ?? tx.net_amount ?? (gross - fees);
+                    currency = 'USD';
+                } else if (isTW) {
+                    gross = tx.amount_usd ?? tx.source_amount ?? tx.amount ?? 0;
+                    fees = tx.transferwise_fee_usd ?? tx.fees ?? tx.fee ?? 0;
+                    net = tx.net_brl ?? tx.destination_amount ?? (gross - fees);
+                    currency = tx.net_brl != null ? 'BRL' : 'USD';
+                } else if (isPix) {
+                    gross = tx.amount_brl ?? tx.amount ?? 0;
+                    fees = tx.fee_brl ?? tx.fees ?? tx.fee ?? 0;
+                    net = gross - fees;
+                    currency = 'BRL';
+                } else {
+                    gross = tx.amount_usd ?? tx.amount_brl ?? tx.amount ?? tx.gross_amount ?? 0;
+                    fees = tx.fees ?? tx.fee ?? tx.stripe_fee_usd ?? tx.transferwise_fee_usd ?? 0;
+                    net = tx.net_usd ?? tx.net_brl ?? tx.net_amount ?? (gross - fees);
+                    currency = tx.currency || (tx.amount_brl != null ? 'BRL' : 'USD');
+                }
+
+                return {
+                    id: tx.id || tx.transaction_id || tx.ref || '',
+                    date: tx.date || tx.timestamp || tx.created_at || '',
+                    type: t,
+                    description: tx.description || tx.memo || tx.note || '',
+                    gross: gross,
+                    fees: fees,
+                    net: net,
+                    currency: currency,
+                    reference: tx.reference || tx.ref || tx.payment_id || tx.stripe_payment_id || tx.id || '',
+                    status: tx.status || 'completed',
+                    recipient: tx.recipient || tx.destination || ''
+                };
+            }
+
+            function renderSummary(txs) {
+                let totalInflow = 0, totalFees = 0, totalNet = 0, totalNetBRL = 0;
+
+                txs.forEach(tx => {
+                    if (tx.type.includes('stripe') || tx.type.includes('donation')) {
+                        totalInflow += tx.gross || 0;
+                    }
+                    if (tx.type.includes('transferwise') || tx.type.includes('tw_')) {
+                        totalInflow += tx.gross || 0;
+                    }
+                    totalFees += tx.fees || 0;
+                    if (tx.type.includes('pix')) {
+                        totalNetBRL += tx.net || 0;
+                    } else if (tx.currency === 'BRL') {
+                        totalNetBRL += tx.net || 0;
+                    } else {
+                        totalNet += tx.net || 0;
+                    }
+                });
+
+                document.getElementById('sum-inflow').textContent = fmtUSD(totalInflow);
+                document.getElementById('sum-fees').textContent = fmtUSD(totalFees);
+                document.getElementById('sum-net').textContent = totalNetBRL > 0 ? fmtBRL(totalNetBRL) : fmtUSD(totalNet);
+                document.getElementById('sum-entries').textContent = txs.length;
+                document.getElementById('sum-tx-count').textContent = txs.length + ' transactions';
+                document.getElementById('sum-last-date').textContent = txs.length > 0
+                    ? 'Last: ' + fmtDate(txs[txs.length - 1].date)
+                    : '';
+            }
+
+            function renderTable(txs) {
+                const body = document.getElementById('tx-body');
+                const tableWrap = document.querySelector('.tx-table-wrap');
+                const emptyState = document.getElementById('empty-state');
+
+                if (txs.length === 0) {
+                    tableWrap.style.display = 'none';
+                    emptyState.classList.remove('hidden');
+                    document.getElementById('result-count').textContent = '';
+                    return;
+                }
+
+                tableWrap.style.display = '';
+                emptyState.classList.add('hidden');
+
+                body.innerHTML = txs.map(tx => {
+                    const grossFmt = tx.currency === 'BRL' ? fmtBRL(tx.gross) : fmtUSD(tx.gross);
+                    const feesFmt = tx.currency === 'BRL' ? fmtBRL(tx.fees) : fmtUSD(tx.fees);
+                    const netFmt = tx.currency === 'BRL' ? fmtBRL(tx.net) : fmtUSD(tx.net);
+                    const isOutbound = tx.type.includes('pix') || tx.type.includes('outbound');
+                    const grossClass = isOutbound ? 'negative' : 'positive';
+                    const refShort = tx.reference ? (tx.reference.length > 28 ? tx.reference.slice(0, 26) + '…' : tx.reference) : '—';
+
+                    return `
+                        <tr>
+                            <td class="tx-date" title="${tx.date}">${fmtDate(tx.date)}</td>
+                            <td><span class="tx-type ${typeClass(tx.type)}">${typeLabel(tx.type)}</span></td>
+                            <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis" title="${tx.description}">
+                                ${tx.description || '—'}
+                                ${tx.recipient ? '<br><small style="color:var(--text-muted);font-size:0.78rem">' + tx.recipient + '</small>' : ''}
+                            </td>
+                            <td class="tx-amount ${grossClass}">${grossFmt}</td>
+                            <td class="tx-amount negative">${feesFmt}</td>
+                            <td class="tx-amount ${isOutbound ? 'positive' : 'neutral'}">${netFmt}</td>
+                            <td><span class="tx-ref" title="${tx.reference}">${refShort}</span></td>
+                            <td><span class="tx-status ${tx.status}"><span class="dot"></span>${tx.status}</span></td>
+                        </tr>`;
+                }).join('');
+
+                document.getElementById('result-count').textContent = `Showing ${txs.length} of ${allTransactions.length} entries`;
+            }
+
+            function applyFilters() {
+                const search = (document.getElementById('tx-search').value || '').toLowerCase().trim();
+                const typeFilter = document.getElementById('tx-type-filter').value;
+
+                let filtered = allTransactions;
+
+                if (typeFilter) {
+                    filtered = filtered.filter(tx => tx.type === typeFilter || typeFilter.includes(tx.type));
+                }
+
+                if (search) {
+                    filtered = filtered.filter(tx => {
+                        const fields = [tx.description, tx.reference, tx.id, tx.recipient, String(tx.gross), String(tx.net)].join(' ').toLowerCase();
+                        return fields.includes(search);
+                    });
+                }
+
+                renderTable(filtered);
+            }
+
+            async function fetchLedger() {
+                const body = document.getElementById('tx-body');
+                const lastUpdated = document.getElementById('last-updated');
+                const errorState = document.getElementById('error-state');
+
+                try {
+                    const resp = await fetch(DATA_URL, { cache: 'no-cache' });
+
+                    if (!resp.ok) {
+                        if (resp.status === 404) {
+                            // Ledger file not created yet — expected in early days
+                            body.innerHTML = '';
+                            document.querySelector('.tx-table-wrap').style.display = 'none';
+                            document.getElementById('empty-state').classList.remove('hidden');
+                            lastUpdated.textContent = 'Ledger not yet initialized on treasury-cache';
+                            return;
+                        }
+                        throw new Error(`HTTP ${resp.status}`);
+                    }
+
+                    const data = await resp.json();
+
+                    // Accept multiple schema shapes:
+                    // { donations: [...] } or { transactions: [...] } or { items: [...] } or bare array
+                    const rawTxs = data.donations || data.transactions || data.items || data.entries || data;
+                    const txs = (Array.isArray(rawTxs) ? rawTxs : []).map(normalizeTx);
+
+                    // Sort newest first
+                    txs.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                    allTransactions = txs;
+
+                    renderSummary(txs);
+                    renderTable(txs);
+                    lastUpdated.textContent = 'Snapshot: ' + (data.generated_at ? fmtDate(data.generated_at) : fmtDate(new Date().toISOString()));
+
+                    // Expose for manual refresh
+                    window.__ledgerData = data;
+                    window.__ledgerTxs = txs;
+
+                } catch (err) {
+                    errorState.classList.remove('hidden');
+                    document.getElementById('error-msg').textContent = 'Could not load ledger: ' + err.message;
+                    body.innerHTML = '';
+                    document.querySelector('.tx-table-wrap').style.display = 'none';
+                    lastUpdated.textContent = 'Fetch failed';
+                }
+            }
+
+            // Expose for filter use
+            window.applyFilters = applyFilters;
+
+            // Boot
+            fetchLedger();
+        })();
+    </script>
+</body>
+</html>
