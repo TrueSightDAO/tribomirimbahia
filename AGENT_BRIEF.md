@@ -48,31 +48,78 @@ Raw video footage lives at `~/Downloads/capoeira/` (filesystem permission may ne
 
 ---
 
+## Model / tool hand-off matrix
+
+Each pipeline stage names the **owner tool** so a future agent (or DeepSeek-driven session) knows where to stop and where to hand off. The capoeira project intentionally mixes models — cultural fidelity matters in some stages, cost matters in others.
+
+| Stage | Owner | Reason for the choice |
+|---|---|---|
+| File enumeration + ffprobe metadata | shell (`ls`, `ffprobe`) | Deterministic, no model needed |
+| Frame stills for vision/dedupe | shell (`ffmpeg`) + `imagehash` pHash | Deterministic; matches `analyze_incoming_videos.py` |
+| **PT audio → text** (raw transcription) | `faster-whisper` via `agroverse_shop/scripts/analyze_incoming_videos.py --language pt` | Speech recognition is **not** an LLM task. Whisper handles PT natively. **Hand-off in:** raw clip files. **Hand-off out:** per-file Whisper segments in `manifest.json` |
+| Transcript cleanup (filler removal) | local rules (`transcript_publish_helpers.clean_transcript` from agroverse_shop) | Rule-based, free |
+| Transcript polish (optional) | Grok via `grok_transcript_polish.py` | Cheap, decent style; cached |
+| Move-name extraction from PT intro | **Claude** | PT → canonical capoeira move name needs cultural literacy ("Bênção", "Meia-Lua de Compasso"); a wrong name on a public site is embarrassing |
+| Vision pass on representative still | **Claude** | Confirms move identity if PT intro is ambiguous; visual capoeira-form recognition |
+| Pedagogy notes (`notes` field on `moves.json`) | **Claude** (drafts only) | Heritage tone + Bico Duro framing; **Gary reviews every entry** before publish |
+| **EN translation** of Bico Duro's PT speech | **Claude** | Lineage / mestre voice fidelity — not a literal translation, faithful rendering |
+| BPM detection on music tracks | `librosa` (shell), or DeepSeek for batch tagging | Numeric task, no cultural nuance |
+| Music tempo/style tags | **DeepSeek** | Cheap bulk tagging; Gary spot-checks |
+| ffmpeg per-move clip trim + compile | shell `ffmpeg` (cut points from Whisper segment timestamps) | Deterministic |
+| YouTube upload | reuse `agroverse_shop/scripts/upload_video_to_youtube.py` (OAuth bound to **admin@truesight.me**) | Don't re-mint credentials; reuse working OAuth |
+| Title / description sync | mirror `youtube_update_video_titles.py` pattern with a tribomirimbahia-scoped JSON (`scripts/youtube_videos.json`) | Same source-of-truth idiom as agroverse_shop |
+| Pull-request narrative + commit messages | **Claude** | Reviewer-readable; no Co-Authored-By trailer |
+
+**Rule of thumb:** if a stage touches Bahia heritage, capoeira terminology, or Bico Duro's voice, route it through Claude. If it's bulk metadata munging, route through DeepSeek or local scripts.
+
+---
+
 ## Phase 1 — Data Preparation (`tribomirimbahia/data/`)
 
 ### 1A — Catalog Bico Duro's move clips → `data/moves.json`
 
-**Inputs:**
-- `~/Downloads/capoeira/` — raw clips (one move per file, per spec). Run `ls -la ~/Downloads/capoeira/` to enumerate.
-- For each clip: `ffprobe -v error -show_entries stream=duration,width,height -of json <file>` for technical metadata.
-- Vision pass on a representative still (`ffmpeg -ss 00:00:02 -i <file> -frames:v 1 -y <stem>.jpg`) → describe the move, propose Portuguese name candidates.
+**Source layout (recorded chronologically by Gary; ~80 .MOV files in `~/Downloads/capoeira/`):**
+- Each video typically opens with Bico Duro **announcing the move name in Portuguese**, then demonstrating it.
+- A small number of videos are **not move demos** — at least one is Bico Duro speaking about the **history of capoeira / his training system / lineage**. Identify and route these separately (treated as bonus context videos for the landing page, not entries in `moves.json`).
+- Some moves may have **multiple takes** across files — the "compiled clip" per move is the canonical edit (best take, trimmed dead air, optionally cross-faded). One compiled clip = one entry in `moves.json` = one YouTube upload.
+
+**Pipeline (reuse agroverse_shop infrastructure rather than re-inventing):**
+
+1. **Run analyze on the capoeira folder** (writes manifest with ffprobe + Whisper PT segments + pHash):
+   ```bash
+   cd ~/Applications/agroverse_shop
+   python3 scripts/analyze_incoming_videos.py \
+     --input ~/Downloads/capoeira \
+     --output ~/Applications/tribomirimbahia/data/incoming_capoeira \
+     --glob '*.MOV' \
+     --language pt \
+     --model small   # 'tiny' is faster; 'small' is more accurate for Portuguese
+   ```
+2. **Classify each video** (Claude): read `manifest.json`'s `transcript_segments[0..2]` per file. Three buckets:
+   - `move_demo` — opens with a move-name announcement → goes into `moves.json` pipeline
+   - `lineage_talk` — Bico Duro speaking about history/training/lineage → goes into a separate `data/lineage_videos.json` for the landing-page narrative
+   - `unknown` — flag for Gary review
+3. **Group `move_demo` videos by move name** — multiple takes of the same move get merged at the compile stage (1D below).
 
 **Output:** `data/moves.json` per the spec's §3 schema. Every move object MUST have:
 - `id` (snake_case, e.g. `ginga_basico`)
-- `name_pt` (canonical Brazilian Portuguese)
+- `name_pt` (canonical Brazilian Portuguese, from the spoken intro — verify against capoeira-community standard spelling)
 - `name_en` (one-line English description, NOT a translation — explain what the move IS)
 - `theme` ∈ `Foundation | Defense | Attacks | Flow | Aerials | Floreios`
 - `difficulty` ∈ `Beginner | Intermediate | Advanced`
 - `duration_minutes` (typical practice time, 15–25)
-- `youtube_clip_url` (placeholder until clips are uploaded — `TODO_UPLOAD` is fine for first pass)
+- `youtube_clip_url` (filled in by 1E once uploaded)
 - `tempo_range` ∈ `Slow | Medium | Fast`
 - `notes` — pedagogy: precision focus, common mistakes, progression cues. **Honor Bico Duro's "precision over chaining" philosophy.**
 - `pairs_well_with` — array of move IDs (optional)
+- `source_videos` — array of source filenames (e.g. `["IMG_5283 2.MOV", "IMG_5284 2.MOV"]`) so re-edits are reproducible
+- `transcript_pt` — verbatim PT intro (Bico Duro's own words)
+- `transcript_en` — EN translation (Claude; lineage-faithful, not literal)
 
 **Voice for `notes`:** terse, instructional, second-person. Reference body parts and ground angles, not abstract energy. Example:
 > "Plant the back foot at 45°. Hip stays square — if you rotate, the kick loses power. Beginners over-extend the leg; keep it short and crisp until the foot retraction is automatic."
 
-**Acceptance:** human reviewer (Gary) reads each entry and corrects PT names + pedagogy notes. First-pass output is a *draft*, not the source of truth.
+**Acceptance (hand-off back to Gary):** human reviewer reads each entry and corrects PT names + pedagogy notes. First-pass output is a *draft*, not the source of truth.
 
 ### 1B — Curate music tracks → `data/music_library.json`
 
@@ -81,9 +128,105 @@ Raw video footage lives at `~/Downloads/capoeira/` (filesystem permission may ne
 - 4–5 medium-tempo drum-heavy (Defense / Attacks)
 - 2–3 fast energetic (Aerials / Floreios)
 
-Each track: `id`, `title`, `youtube_url`, `duration_seconds`, `bpm` (estimated; use a BPM detection tool or manual tap), `tempo_category`, `style_notes`.
+Each track: `id`, `title`, `youtube_url`, `duration_seconds`, `bpm` (estimated via `librosa` or DeepSeek tap), `tempo_category`, `style_notes`.
 
-**Source:** Gary curates the URLs; agent's job is the metadata + tagging pass.
+**Hand-off:** Gary curates the URLs; agent's job is the metadata + tagging pass. **Owner:** DeepSeek for tagging; Gary spot-checks.
+
+### 1C — Compile per-move canonical clips → `data/compiled_clips/`
+
+For each move identified in 1A, produce **one compiled clip** that goes to YouTube. Source files are in `~/Downloads/capoeira/` (~80 .MOV files; some moves have multiple takes).
+
+**Process:**
+1. **Trim points** from Whisper segment timestamps in `manifest.json`:
+   - Start of demo = end timestamp of the PT-intro segment (where Bico Duro stops speaking and starts moving)
+   - End of demo = end of last segment OR explicit silence detection via `ffmpeg -af silencedetect`
+2. **Multi-take selection:** if a move has multiple source videos, choose the longest clean take by default; mark the others as `alternate_takes` in `moves.json` source list. **Do NOT cross-fade automatically** — capoeira demo videos read best as single takes; concatenation is a Gary-review decision.
+3. **Compile command** (per move):
+   ```bash
+   ffmpeg -ss <start> -to <end> -i "<source>" \
+     -c:v libx264 -preset slow -crf 20 \
+     -c:a aac -b:a 128k \
+     -movflags +faststart \
+     "data/compiled_clips/<move_id>.mp4"
+   ```
+   `-movflags +faststart` matters for YouTube + web playback.
+4. **Output naming:** `<move_id>.mp4` (snake_case). Example: `meia_lua_de_compasso.mp4`.
+5. **Resolution + portrait/landscape:** preserve source aspect ratio; do NOT force-rotate. iPhone vertical videos stay vertical.
+
+**Owner:** shell `ffmpeg` (deterministic). Whisper timestamps drive the cut points.
+
+**Hand-off out:** one .mp4 per move under `data/compiled_clips/`, ready for 1D translation + 1E upload.
+
+### 1D — English translation per compiled clip → `data/transcripts/`
+
+For each compiled clip, produce two artifacts:
+- `data/transcripts/<move_id>.pt.txt` — verbatim PT (from Whisper + `clean_transcript`)
+- `data/transcripts/<move_id>.en.txt` — EN translation (Claude)
+
+**EN translation rules (these are mestre's words on a public site):**
+- Faithful, not literal. "Bênção" stays "Bênção" (gloss as "*the blessing kick*" parenthetically on first mention).
+- Preserve cultural / lineage references — if Bico Duro mentions a teacher or capoeira regional vs. angola, keep those proper nouns.
+- Second-person where Bico Duro is teaching ("you plant the foot…").
+- No marketing-speak. No "transformative." No "journey."
+- Footer line on the EN transcript: `*Translated from Bico Duro's instruction. PT source: tribomirimbahia/data/transcripts/<move_id>.pt.txt*`
+
+**Owner:** Claude (drafts only). Gary reviews EN translation before any clip publishes publicly.
+
+### 1E — Upload to YouTube (admin@truesight.me) → fill `youtube_clip_url`
+
+**Reuse existing OAuth** in `agroverse_shop/scripts/`:
+- `youtube_credentials.json` — Desktop client for admin@truesight.me
+- `youtube_token.json` — refresh token with scopes `youtube.upload` + `youtube.force-ssl`
+
+**Per-clip upload** (one move = one video):
+```bash
+cd ~/Applications/agroverse_shop
+python3 scripts/upload_video_to_youtube.py \
+  ~/Applications/tribomirimbahia/data/compiled_clips/<move_id>.mp4 \
+  --title "<title-format-below>" \
+  --description "<description-format-below>" \
+  --privacy unlisted    # default unlisted until Gary approves public flip
+```
+
+**Title format (≤ 100 chars):**
+```
+<name_pt> — <name_en> | Tribo Bahia Mirim Capoeira
+```
+Example: `Meia-Lua de Compasso — half-moon compass kick | Tribo Bahia Mirim Capoeira`
+
+**Description format:**
+```
+<one-line move summary in EN>
+
+— Bico Duro, Tribo Bahia Mirim, Baia Itacaré (Bahia, Brazil)
+
+INSTRUCTION (translated from Portuguese):
+<EN transcript body>
+
+ORIGINAL (Portuguese):
+<PT transcript body>
+
+About Tribo Bahia Mirim:
+After-school capoeira program for children in Baia Itacaré, led by Bico Duro. Support: https://capoeira.agroverse.shop
+
+Lineage: <if Bico Duro mentioned in the intro, repeat the lineage line he used>
+```
+
+**Source-of-truth JSON** (mirrors agroverse_shop convention): `tribomirimbahia/scripts/youtube_videos.json` maps `<move_id>` → `{video_id, canonical_title, description_sha}`. After every upload OR title change, run a `youtube_update_video_titles.py`-style script so the live YouTube title matches the JSON.
+
+**Privacy default:** **unlisted** until Gary reviews. Flip to **public** only on Gary's explicit say-so per move (cultural risk: a wrong PT name on a public video is hard to walk back).
+
+**Owner:** existing `upload_video_to_youtube.py` (no new OAuth). **Hand-off back to Gary:** YouTube URLs for each move, listed in `youtube_videos.json` + populated into `moves.json[*].youtube_clip_url`.
+
+### 1F — Bonus lineage / history video → `data/lineage_videos.json`
+
+Any video classified as `lineage_talk` in 1A.2 (Bico Duro speaking about capoeira history or his training system, not demoing a move) gets a separate pipeline:
+- Same Whisper PT transcript + Claude EN translation
+- Same YouTube upload (unlisted, admin@truesight.me)
+- Recorded in `data/lineage_videos.json` (not `moves.json` — these are landing-page narrative material, not practice content)
+- Title format: `<topic in PT> — <topic in EN> | Tribo Bahia Mirim Capoeira` (e.g. `A história da capoeira — the history of capoeira | Tribo Bahia Mirim Capoeira`)
+
+These videos feed Phase 2's `index.html` narrative section.
 
 ---
 
