@@ -3,8 +3,3 @@
 __pycache__/
 .venv/
 node_modules/
-
-# Compiled per-move clips — regeneratable from yt-dlp + ffmpeg + data/segmentation_plan.json
-data/compiled_clips/
-*.mp4
-*.MOV
