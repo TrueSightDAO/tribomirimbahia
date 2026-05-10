@@ -1,12 +1,17 @@
-# Tribo Bahia Mirim Capoeira Practice Platform — Agent Implementation Brief
+# Tribo Bahia Mirim — Ledger & Transparency Layer (Agent Brief)
 
-> Self-contained brief for whichever LLM picks up the work (Claude CLI, OpenCode/DeepSeek, OpenCode/BigModel, etc.). The spec PDF (`tribo mirim bahia capoeira spec.pdf`) is the canonical product definition. **This file is the operator's overlay** — paths, conventions, authorization, hand-off checkpoints. Read both before touching anything.
+> Self-contained brief for whichever LLM picks up the work (Claude CLI, OpenCode/DeepSeek, OpenCode/BigModel, etc.). The spec PDF (`tribo mirim bahia capoeira spec.pdf`) is the canonical product definition. **This file is the operator's overlay** for the ledger / transparency side of the project — paths, conventions, authorization, hand-off checkpoints. Read both before touching anything.
 
 ---
 
 ## TL;DR
 
-Build a static-site capoeira practice tool at `capoeira.agroverse.shop` that pairs Bico Duro's individual-move video clips with curated berimbau-tempo music to drive 45-minute solo sessions, plus a public donation flow whose net proceeds (after Stripe fees) go to Tribo Bahia Mirim's after-school program in Itacaré. A separate transparency dashboard at `mirim-bahia.truesight.me` shows every dollar in/out from the existing TrueSight DAO `treasury-cache` ledger.
+This repo is the **ledger & transparency layer** of the Tribo Bahia Mirim project — the public donation flow (Stripe), the monthly reconciliation pipeline (Stripe CSV → Google Sheet → `treasury-cache` JSON), and the transparency-explorer site (deployed via GitHub Pages from this repo's `index.html`, custom domain via `CNAME`).
+
+**Practice content lives in a sibling repo:** the 39 Bico Duro move clips, music library, session-generator site, and per-move video pipeline are all in **`~/Applications/capoeira/`** (deploys to `capoeira.agroverse.shop`). Don't put practice content here — the split is:
+
+- **`tribomirimbahia/`** — donations, fees, monthly net to Bico Duro, transparency explorer (this repo)
+- **`capoeira/`** — practice tool, moves, music, video clips
 
 The project is **Shaolin-temple-shaped**: contemplative practice (`oracle.truesight.me`) and embodied practice (`capoeira.agroverse.shop`) are two halves of the same values-aligned worldview.
 
@@ -16,12 +21,11 @@ The project is **Shaolin-temple-shaped**: contemplative practice (`oracle.truesi
 
 | Repo | Path | Purpose |
 |---|---|---|
-| `tribomirimbahia` | `~/Applications/tribomirimbahia/` | **This repo.** Project container — spec, this brief, future planning docs, partner agreements, transparency-dashboard assets if separable. No production code. |
-| `capoeira` | `~/Applications/capoeira/` | Static practice-platform site that deploys to `capoeira.agroverse.shop`. Currently empty — Phase 2 starts here. |
-| `truesight_me` | `~/Applications/truesight_me/` | Existing static site. Transparency dashboard subdirectory `mirim-bahia/` lives here, deployed via the existing `truesight_me_prod` flow. |
-| `agroverse_shop` | `~/Applications/agroverse_shop/` | Existing e-commerce site. Phase 4 cross-link from `farms/baia-itacare/` lands here. |
-
-Raw video footage lives at `~/Downloads/capoeira/` (filesystem permission may need to be granted to the agent — `ls` returned `Operation not permitted` on first attempt).
+| `tribomirimbahia` | `~/Applications/tribomirimbahia/` | **This repo.** Ledger & transparency layer. Hosts `index.html` (transparency explorer at the CNAME'd domain), spec PDF, `CLAUDE_PROMPT_LEDGER.md` (ledger-publish workflow), this brief. |
+| `capoeira` | `~/Applications/capoeira/` | Practice platform site at `capoeira.agroverse.shop`. Owns `data/moves.json` (39 Bico Duro clips), `data/music_library.json`, the JS session generator, and `scripts/upload_clips_to_youtube.py`. **Shipped 2026-05-10.** |
+| `treasury-cache` | `~/Applications/treasury-cache/` | Public ledger JSON. Donations land at `managed-ledgers/tribomirimbahia.json` (see `CLAUDE_PROMPT_LEDGER.md`). The transparency explorer in this repo reads from there. |
+| `truesight_me` | `~/Applications/truesight_me/` | Existing static site. Optional Tribo subdirectory if Gary wants a `truesight.me`-branded view in addition to this repo's domain. |
+| `agroverse_shop` | `~/Applications/agroverse_shop/` | Existing e-commerce site. Cross-link from `farms/baia-itacare/` to `capoeira.agroverse.shop` per spec §10 lands here. |
 
 ---
 
@@ -48,33 +52,45 @@ Raw video footage lives at `~/Downloads/capoeira/` (filesystem permission may ne
 
 ---
 
-## Model / tool hand-off matrix
+## Model / tool hand-off matrix (ledger / transparency only)
 
-Each pipeline stage names the **owner tool** so a future agent (or DeepSeek-driven session) knows where to stop and where to hand off. The capoeira project intentionally mixes models — cultural fidelity matters in some stages, cost matters in others.
+For this repo's scope (donation flow, monthly reconciliation, transparency-explorer page):
 
-| Stage | Owner | Reason for the choice |
+| Stage | Owner | Reason |
 |---|---|---|
-| File enumeration + ffprobe metadata | shell (`ls`, `ffprobe`) | Deterministic, no model needed |
-| Frame stills for vision/dedupe | shell (`ffmpeg`) + `imagehash` pHash | Deterministic; matches `analyze_incoming_videos.py` |
-| **PT audio → text** (raw transcription) | `faster-whisper` via `agroverse_shop/scripts/analyze_incoming_videos.py --language pt` | Speech recognition is **not** an LLM task. Whisper handles PT natively. **Hand-off in:** raw clip files. **Hand-off out:** per-file Whisper segments in `manifest.json` |
-| Transcript cleanup (filler removal) | local rules (`transcript_publish_helpers.clean_transcript` from agroverse_shop) | Rule-based, free |
-| Transcript polish (optional) | Grok via `grok_transcript_polish.py` | Cheap, decent style; cached |
-| Move-name extraction from PT intro | **Claude** | PT → canonical capoeira move name needs cultural literacy ("Bênção", "Meia-Lua de Compasso"); a wrong name on a public site is embarrassing |
-| Vision pass on representative still | **Claude** | Confirms move identity if PT intro is ambiguous; visual capoeira-form recognition |
-| Pedagogy notes (`notes` field on `moves.json`) | **Claude** (drafts only) | Heritage tone + Bico Duro framing; **Gary reviews every entry** before publish |
-| **EN translation** of Bico Duro's PT speech | **Claude** | Lineage / mestre voice fidelity — not a literal translation, faithful rendering |
-| BPM detection on music tracks | `librosa` (shell), or DeepSeek for batch tagging | Numeric task, no cultural nuance |
-| Music tempo/style tags | **DeepSeek** | Cheap bulk tagging; Gary spot-checks |
-| ffmpeg per-move clip trim + compile | shell `ffmpeg` (cut points from Whisper segment timestamps) | Deterministic |
-| YouTube upload | reuse `agroverse_shop/scripts/upload_video_to_youtube.py` (OAuth bound to **admin@truesight.me**) | Don't re-mint credentials; reuse working OAuth |
-| Title / description sync | mirror `youtube_update_video_titles.py` pattern with a tribomirimbahia-scoped JSON (`scripts/youtube_videos.json`) | Same source-of-truth idiom as agroverse_shop |
-| Pull-request narrative + commit messages | **Claude** | Reviewer-readable; no Co-Authored-By trailer |
+| Stripe Checkout config + webhook (if added) | **Gary + Claude pair** | Real money; double-check fee math and KYC before going live |
+| Monthly Stripe CSV → Google Sheet | **Gary (manual)** OR cron-style script later | Manual reconciliation is fine for MVP per spec §8 |
+| Sheet → `treasury-cache/managed-ledgers/tribomirimbahia.json` | Apps Script (mirror `tokenomics/google_app_scripts/`) | Same pattern as inventory / sales snapshots |
+| Transparency-explorer HTML/JS edits | **Claude** | DApp page conventions, fee-math display, donor-readable copy |
+| Public copy (donate / fee math / monthly net wording) | **Claude drafts → Gary reviews** | Heritage tone; Bico Duro framing; transparency claims must be defensible |
+| PR narrative + commit messages | **Claude** | Reviewer-readable; no Co-Authored-By trailer |
 
-**Rule of thumb:** if a stage touches Bahia heritage, capoeira terminology, or Bico Duro's voice, route it through Claude. If it's bulk metadata munging, route through DeepSeek or local scripts.
+**Practice-content hand-offs** (moves, music, video upload, Whisper, ffmpeg) **live in `capoeira/AGENT_BRIEF.md`** — don't duplicate that matrix here. If a session lands in this repo looking for those rules, redirect them to the capoeira repo first.
+
+**Rule of thumb for this repo:** the bar is *transparency credibility*. Public donors should be able to trace every dollar. Don't let copy drift toward marketing language; keep dollar figures, fees, and net-to-program numbers visible and auditable.
 
 ---
 
-## Phase 1 — Data Preparation (`tribomirimbahia/data/`)
+## Phases 1–3 — practice platform (moved to `capoeira` repo)
+
+The original brief had Phase 1 (data prep), Phase 2 (site build), Phase 3 (persistence)
+in this repo. As of 2026-05-10 they live in `~/Applications/capoeira/`:
+
+- **Phase 1A (39 Bico Duro move clips, `moves.json`)** — shipped. See `capoeira/data/moves.json`,
+  `capoeira/data/segmentation_plan.json`, `capoeira/data/move_metadata.json`,
+  `capoeira/data/youtube_videos.json`, `capoeira/scripts/upload_clips_to_youtube.py`.
+- **Phase 1B (music_library.json, 12 tracks + local MP3s)** — shipped by BigModel.
+  See `capoeira/data/music_library.json` + `capoeira/data/music/*.mp3`.
+- **Phase 2 (core site build — landing, library, practice, transparency pages + JS)** — shipped.
+  See `capoeira/{index,library,practice,transparency}.html` + `capoeira/assets/js/*.js`.
+- **Phase 3 (client-side session history)** — shipped via `capoeira/assets/js/session-history.js`.
+
+If you're picking up practice-platform work, read `capoeira/README.md` first.
+
+Everything below is the **ledger / transparency** scope that stays in this repo.
+
+<details>
+<summary>Historical Phase 1 / 2 / 3 plan (kept for archaeology only — do not implement here)</summary>
 
 ### 1A — Catalog Bico Duro's move clips → `data/moves.json`
 
@@ -296,7 +312,11 @@ If a backend becomes necessary later, the schema is per spec §3 (`session_histo
 
 ---
 
-## Phase 4 — Donation & Ledger Integration
+</details>
+
+---
+
+## Phase 4 — Donation & Ledger Integration (this repo's actual scope)
 
 ### 4A — Stripe checkout (in `capoeira/index.html` + footer)
 
@@ -346,13 +366,16 @@ Plus a single sentence above the table: "Every donation, minus processing fees, 
 
 ## Hand-off checkpoints (where the human reviews)
 
+For this repo's scope (donation flow + transparency explorer):
+
 | Checkpoint | What Gary reviews | Why |
 |---|---|---|
-| End of Phase 1A | Every entry in `data/moves.json` (PT names + pedagogy notes) | Cultural fidelity; LLM first-pass is a draft |
-| End of Phase 1B | Music track tags (BPM, tempo_category) | BPM detection can drift; tempo arc affects practice feel |
-| Landing page first draft | All copy on `index.html` | Heritage tone, Bico Duro framing |
-| Pre-Stripe-live | Stripe account config, fee math | Real money; double-check before going live |
-| Pre-launch | Full site walkthrough on a phone | Practice flow needs to feel right on mobile |
+| Pre-Stripe-live | Stripe account config, fee math, donation amounts | Real money; double-check before going live |
+| First published `treasury-cache/managed-ledgers/tribomirimbahia.json` | Schema correctness, donor anonymity | Once public it indexes; mistakes are costly to walk back |
+| Transparency-explorer copy changes | Public-facing wording, fee disclosure | Donors will scrutinize claims; keep numbers + math visible |
+| Phase 4 cross-link from agroverse_shop | Wording on `farms/baia-itacare/` linking to capoeira.agroverse.shop | Don't redesign the farm page; one line per spec §10 |
+
+Practice-platform checkpoints (moves, music, site) are tracked in `capoeira/`.
 
 ---
 
@@ -403,9 +426,12 @@ Reference: `agentic_ai_context/DAO_CLIENT_AI_AGENT_CONTRIBUTIONS.md`.
 
 ---
 
-## Open questions (answer before Phase 2)
+## Open questions (Phase 4 — donation & ledger)
 
-1. **Site deployment target:** does `capoeira.agroverse.shop` deploy from the `capoeira` repo via GitHub Pages, OR is the site copied into `agroverse_shop/capoeira/` and deployed via the existing Agroverse Pages flow? Default assumption: standalone repo with GitHub Pages, custom domain via DNS CNAME.
-2. **Stripe account:** new Stripe account for Tribo, or sub-account / restricted-key under Gary's existing Stripe? Affects KYC + fee structure + reporting flow.
-3. **Bico Duro consent:** does he know his image / footage is going public? Spec §11 step 1 says to confirm. Phase 1A clip cataloging can proceed in parallel but **don't push public until consent is recorded.**
-4. **Initial donation goal:** is there a fundraising target to display ("first $X funds quarter 1 of after-school program")? Affects landing page copy.
+1. **Stripe account:** new Stripe account for Tribo, or sub-account / restricted-key under Gary's existing Stripe? Affects KYC + fee structure + reporting flow.
+2. **Bico Duro consent:** the 39 Bico Duro clips in `capoeira/data/moves.json` are already PUBLIC on admin@truesight.me as of 2026-05-10. Has Bico Duro been explicitly informed they're public? Spec §11 step 1 says to confirm. **If he hasn't been told, do that before the donation flow goes live** — the same channel hosts both.
+3. **Initial donation goal:** is there a fundraising target to display ("first $X funds quarter 1 of after-school program")? Affects landing page copy on `capoeira/index.html` and the transparency-explorer header on this repo's `index.html`.
+4. **Pix transfer pattern:** monthly settlement Stripe → Gary's US bank → Pix → Bico Duro. What's the latency budget? Does Gary want the transparency dashboard to show "in-flight" donations differently from "received by Bico Duro"?
+
+Site-build deployment questions (Phase 2) were resolved when capoeira shipped 2026-05-10:
+GitHub Pages from the `capoeira` repo, custom domain via DNS CNAME to `capoeira.agroverse.shop`.
