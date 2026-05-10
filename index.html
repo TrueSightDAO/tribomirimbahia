@@ -519,7 +519,7 @@
 
     <footer>
         <p>Data sourced from <span class="data-source">github.com/TrueSightDAO/treasury-cache</span></p>
-        <p><a href="https://github.com/TrueSightDAO/treasury-cache/blob/main/tribomirimbahia_donations.json" target="_blank" rel="noopener">View raw ledger JSON ↗</a></p>
+        <p><a href="https://github.com/TrueSightDAO/treasury-cache/blob/main/managed-ledgers/tribomirimbahia.json" target="_blank" rel="noopener">View raw ledger JSON ↗</a></p>
         <p style="margin-top:0.75rem"><a href="https://capoeira.agroverse.shop">Practice Platform</a> &middot; <a href="https://truesight.me">TrueSight DAO</a> &middot; <a href="https://agroverse.shop">Agroverse</a></p>
     </footer>
 
@@ -527,7 +527,8 @@
         (function () {
             'use strict';
 
-            const DATA_URL = 'https://raw.githubusercontent.com/TrueSightDAO/treasury-cache/main/tribomirimbahia_donations.json';
+            const LEDGER_NAME = 'tribomirimbahia';
+            const DATA_URL = 'https://raw.githubusercontent.com/TrueSightDAO/treasury-cache/main/managed-ledgers/' + LEDGER_NAME + '.json';
             let allTransactions = [];
 
             /**
@@ -769,3 +770,5 @@
     </script>
 </body>
 </html>
+
+<!-- Phase 4C: Transparency explorer deployed -->
