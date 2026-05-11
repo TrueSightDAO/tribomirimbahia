@@ -1,6 +1,6 @@
 # Tribo Bahia Mirim — Ledger & Transparency Layer
 
-Static transparency explorer at [mirim-bahia.truesight.me](https://mirim-bahia.truesight.me),
+Static transparency explorer at [tribomirimbahia.truesight.me](https://tribomirimbahia.truesight.me),
 plus the project's spec PDF, agent brief, and the workflow for publishing the donation
 ledger to the public `treasury-cache` repo.
 
@@ -8,9 +8,9 @@ ledger to the public `treasury-cache` repo.
 
 Two things live here:
 
-1. **`index.html`** — the transparency explorer. Reads `treasury-cache/managed-ledgers/tribomirimbahia.json`
+1. **`index.html`** — the transparency explorer. Reads `treasury-cache/managed-ledgers/TBM.json`
    and renders the monthly donation table: inflow, Stripe fees, net to program, Pix transfer ref.
-   Deploys via GitHub Pages from this repo (`CNAME` → `mirim-bahia.truesight.me`).
+   Deploys via GitHub Pages from this repo (`CNAME` → `tribomirimbahia.truesight.me`).
 
 2. **`CLAUDE_PROMPT_LEDGER.md`** — the workflow for publishing/updating the donation JSON to
    [`TrueSightDAO/treasury-cache`](https://github.com/TrueSightDAO/treasury-cache) so the
@@ -33,14 +33,14 @@ python3 -m http.server 8000
 # → http://localhost:8000
 ```
 
-The page fetches from `https://raw.githubusercontent.com/TrueSightDAO/treasury-cache/main/managed-ledgers/tribomirimbahia.json`.
+The page fetches from `https://raw.githubusercontent.com/TrueSightDAO/treasury-cache/main/managed-ledgers/TBM.json`.
 If you want to test against local ledger data, swap the `DATA_URL` in `index.html`.
 
 ## Files
 
 ```
 ├── index.html                          # Transparency explorer (deploys via CNAME)
-├── CNAME                               # mirim-bahia.truesight.me
+├── CNAME                               # tribomirimbahia.truesight.me
 ├── CLAUDE_PROMPT_LEDGER.md             # Workflow: publish donation JSON to treasury-cache
 ├── AGENT_BRIEF.md                      # Operator overlay — Phase 4 (donations/ledger) focused
 ├── tribo mirim bahia capoeira spec.pdf # Canonical project spec (covers both repos)
@@ -55,7 +55,7 @@ Deploys via GitHub Pages from the `main` branch root, custom domain via `CNAME`.
 |---|---|
 | GitHub Pages source | Deploy from a branch |
 | Branch | `main` / `(root)` |
-| Custom domain | `mirim-bahia.truesight.me` (see `CNAME`) |
+| Custom domain | `tribomirimbahia.truesight.me` (see `CNAME`) |
 
 ## Data flow
 
@@ -66,7 +66,7 @@ Donor → Stripe Checkout (linked from capoeira.agroverse.shop landing)
       ↓
    Google Sheet "Tribo Bahia Mirim Donations" (manual reconciliation)
       ↓
-   Apps Script → treasury-cache/managed-ledgers/tribomirimbahia.json
+   Apps Script → treasury-cache/managed-ledgers/TBM.json
       ↓
    index.html (this repo) reads the JSON and renders the table
 ```
@@ -77,9 +77,9 @@ Schema for the JSON is in `CLAUDE_PROMPT_LEDGER.md`.
 
 | Repo | Purpose | Deploys to |
 |---|---|---|
-| [`tribomirimbahia`](https://github.com/TrueSightDAO/tribomirimbahia) | **This repo** — ledger & transparency layer | `mirim-bahia.truesight.me` |
+| [`tribomirimbahia`](https://github.com/TrueSightDAO/tribomirimbahia) | **This repo** — ledger & transparency layer | `tribomirimbahia.truesight.me` |
 | [`capoeira`](https://github.com/TrueSightDAO/capoeira) | Practice platform — moves, music, session generator | `capoeira.agroverse.shop` |
-| [`treasury-cache`](https://github.com/TrueSightDAO/treasury-cache) | Public JSON ledger (`managed-ledgers/tribomirimbahia.json`) | (raw GitHub) |
+| [`treasury-cache`](https://github.com/TrueSightDAO/treasury-cache) | Public JSON ledger (`managed-ledgers/TBM.json`) | (raw GitHub) |
 | [`tokenomics`](https://github.com/TrueSightDAO/tokenomics) | Apps Script reference for Sheet → treasury-cache snapshot pattern | — |
 
 ## Conventions

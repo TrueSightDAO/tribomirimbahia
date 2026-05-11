@@ -3,7 +3,7 @@
 When you are ready to publish the Tribo Bahia Mirim donation ledger data, write it to this file:
 
 ```
-treasury-cache/managed-ledgers/tribomirimbahia.json
+treasury-cache/managed-ledgers/TBM.json
 ```
 
 The repo is `TrueSightDAO/treasury-cache` (HTTPS remote, already cloned at `~/Applications/treasury-cache/`).
@@ -14,7 +14,7 @@ The file uses this shape (the Transparency Explorer at `https://TrueSightDAO.git
 
 ```json
 {
-  "ledger_name": "tribomirimbahia",
+  "ledger_name": "TBM",
   "program_name": "Tribo Bahia Mirim Capoeira",
   "description": "Donation ledger for Tribo Bahia Mirim's after-school capoeira program in Itacare, Bahia.",
   "schema_version": 1,
@@ -76,8 +76,8 @@ The file uses this shape (the Transparency Explorer at `https://TrueSightDAO.git
 ```bash
 cd ~/Applications/treasury-cache
 git pull origin main
-# Edit managed-ledgers/tribomirimbahia.json
-git add managed-ledgers/tribomirimbahia.json
+# Edit managed-ledgers/TBM.json
+git add managed-ledgers/TBM.json
 git commit -m "chore: update tribomirimbahia donation ledger snapshot"
 git push origin main
 ```
@@ -87,12 +87,12 @@ git push origin main
 The Apps Script should:
 1. Pull from Google Sheet (Stripe CSV → Sheet tab)
 2. Construct the JSON per the schema above
-3. PUT to GitHub Contents API: `TrueSightDAO/treasury-cache/managed-ledgers/tribomirimbahia.json`
+3. PUT to GitHub Contents API: `TrueSightDAO/treasury-cache/managed-ledgers/TBM.json`
 4. The explorer auto-fetches via `raw.githubusercontent.com`
 
 ### The explorer page
 
-Once the JSON is published, the transparency dashboard at `https://TrueSightDAO.github.io/tribomirimbahia/` (or `mirim-bahia.truesight.me` when CNAME is active) will display:
+Once the JSON is published, the transparency dashboard at `https://TrueSightDAO.github.io/tribomirimbahia/` (or `tribomirimbahia.truesight.me` when CNAME is active) will display:
 - Summary cards (total inflow, fees, net to program)
 - Filterable transaction table (search + type dropdown)
 - Each transaction row: date, type badge, description, amounts, reference, status
@@ -101,4 +101,4 @@ The explorer normalizes field names flexibly — if the schema evolves, it will 
 
 ### When there are no transactions yet
 
-The file at `managed-ledgers/tribomirimbahia.json` already exists with an empty `transactions` array and zeroed `summary`. The explorer shows "Ledger coming soon" until the first transaction is added. Simply append to the array and update `summary` and `generated_at`.
+The file at `managed-ledgers/TBM.json` already exists with an empty `transactions` array and zeroed `summary`. The explorer shows "Ledger coming soon" until the first transaction is added. Simply append to the array and update `summary` and `generated_at`.
