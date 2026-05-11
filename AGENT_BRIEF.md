@@ -23,7 +23,7 @@ The project is **Shaolin-temple-shaped**: contemplative practice (`oracle.truesi
 |---|---|---|
 | `tribomirimbahia` | `~/Applications/tribomirimbahia/` | **This repo.** Ledger & transparency layer. Hosts `index.html` (transparency explorer at the CNAME'd domain), spec PDF, `CLAUDE_PROMPT_LEDGER.md` (ledger-publish workflow), this brief. |
 | `capoeira` | `~/Applications/capoeira/` | Practice platform site at `capoeira.agroverse.shop`. Owns `data/moves.json` (39 Bico Duro clips), `data/music_library.json`, the JS session generator, and `scripts/upload_clips_to_youtube.py`. **Shipped 2026-05-10.** |
-| `treasury-cache` | `~/Applications/treasury-cache/` | Public ledger JSON. Donations land at `managed-ledgers/tribomirimbahia.json` (see `CLAUDE_PROMPT_LEDGER.md`). The transparency explorer in this repo reads from there. |
+| `treasury-cache` | `~/Applications/treasury-cache/` | Public ledger JSON. Donations land at `managed-ledgers/TBM.json` (see `CLAUDE_PROMPT_LEDGER.md`). The transparency explorer in this repo reads from there. |
 | `truesight_me` | `~/Applications/truesight_me/` | Existing static site. Optional Tribo subdirectory if Gary wants a `truesight.me`-branded view in addition to this repo's domain. |
 | `agroverse_shop` | `~/Applications/agroverse_shop/` | Existing e-commerce site. Cross-link from `farms/baia-itacare/` to `capoeira.agroverse.shop` per spec §10 lands here. |
 
@@ -60,7 +60,7 @@ For this repo's scope (donation flow, monthly reconciliation, transparency-explo
 |---|---|---|
 | Stripe Checkout config + webhook (if added) | **Gary + Claude pair** | Real money; double-check fee math and KYC before going live |
 | Monthly Stripe CSV → Google Sheet | **Gary (manual)** OR cron-style script later | Manual reconciliation is fine for MVP per spec §8 |
-| Sheet → `treasury-cache/managed-ledgers/tribomirimbahia.json` | Apps Script (mirror `tokenomics/google_app_scripts/`) | Same pattern as inventory / sales snapshots |
+| Sheet → `treasury-cache/managed-ledgers/TBM.json` | Apps Script (mirror `tokenomics/google_app_scripts/`) | Same pattern as inventory / sales snapshots |
 | Transparency-explorer HTML/JS edits | **Claude** | DApp page conventions, fee-math display, donor-readable copy |
 | Public copy (donate / fee math / monthly net wording) | **Claude drafts → Gary reviews** | Heritage tone; Bico Duro framing; transparency claims must be defensible |
 | PR narrative + commit messages | **Claude** | Reviewer-readable; no Co-Authored-By trailer |
@@ -257,7 +257,7 @@ capoeira/
 ├── index.html                  # Landing page (§4 narrative, donate CTA)
 ├── library.html                # Move library (searchable/filterable per §4.4)
 ├── practice.html               # Session generator + practice flow (§4.1, §4.2)
-├── transparency.html           # Light summary; full dashboard at mirim-bahia.truesight.me
+├── transparency.html           # Light summary; full dashboard at tribomirimbahia.truesight.me
 ├── assets/
 │   ├── css/styles.css
 │   ├── js/session-generator.js # §4.1 logic (history-aware theme selection, weighted move pick)
@@ -330,11 +330,11 @@ If a backend becomes necessary later, the schema is per spec §3 (`session_histo
 Per spec §4.5 + §9:
 1. Stripe CSV export → 2. Google Sheet (Tribo Bahia Mirim Donations tab on the existing TrueSight DAO ledger spreadsheet) → 3. Apps Script writes JSON to `treasury-cache` repo.
 
-Mirror the existing pattern in `tokenomics/google_app_scripts/` (sales/inventory snapshot scripts publish to `treasury-cache` similarly). Add a new script: `tribomirimbahia_donations_snapshot.gs`.
+Mirror the existing pattern in `tokenomics/google_app_scripts/` (sales/inventory snapshot scripts publish to `treasury-cache` similarly). Add a new script: `TBM_donations_snapshot.gs`.
 
-### 4C — Transparency dashboard at `mirim-bahia.truesight.me`
+### 4C — Transparency dashboard at `tribomirimbahia.truesight.me`
 
-Lives in `truesight_me/mirim-bahia/index.html`. Pulls from `https://raw.githubusercontent.com/TrueSightDAO/treasury-cache/main/tribomirimbahia_donations.json`.
+Lives in this repo's `index.html` (deploys via GitHub Pages from `main` + the `CNAME` file). Pulls from `https://raw.githubusercontent.com/TrueSightDAO/treasury-cache/main/managed-ledgers/TBM.json` — `LEDGER_ID = 'TBM'` matches the short-code convention used across all managed ledgers (AGL10, PP1, SEF1, etc.).
 
 Shows monthly table:
 | Month | Total inflow (USD) | Stripe fees | Net to program | Pix transfer ref |
@@ -371,7 +371,7 @@ For this repo's scope (donation flow + transparency explorer):
 | Checkpoint | What Gary reviews | Why |
 |---|---|---|
 | Pre-Stripe-live | Stripe account config, fee math, donation amounts | Real money; double-check before going live |
-| First published `treasury-cache/managed-ledgers/tribomirimbahia.json` | Schema correctness, donor anonymity | Once public it indexes; mistakes are costly to walk back |
+| First published `treasury-cache/managed-ledgers/TBM.json` | Schema correctness, donor anonymity | Once public it indexes; mistakes are costly to walk back |
 | Transparency-explorer copy changes | Public-facing wording, fee disclosure | Donors will scrutinize claims; keep numbers + math visible |
 | Phase 4 cross-link from agroverse_shop | Wording on `farms/baia-itacare/` linking to capoeira.agroverse.shop | Don't redesign the farm page; one line per spec §10 |
 
