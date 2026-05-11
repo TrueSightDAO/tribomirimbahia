@@ -353,9 +353,12 @@
         .tx-type.other { background: var(--clay-bg); color: var(--clay); }
 
         .tx-table .tx-description {
-            word-break: break-word;
-            min-width: 280px;
+            word-break: break-all;
+            overflow-wrap: anywhere;
+            min-width: 240px;
+            max-width: 420px;
             line-height: 1.4;
+            white-space: normal;
         }
 
         .tx-table .tx-amount {
@@ -575,9 +578,22 @@
             }
             function fmtDate(iso) {
                 if (!iso) return '—';
-                const d = new Date(iso);
-                return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) +
-                    ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                // Handle ISO date-only ("2026-05-11") by parsing the components
+                // explicitly, otherwise Safari and a few older engines return
+                // "Invalid Date" for the bare-date form. For anything else
+                // (full ISO timestamp, US slash dates, etc.) fall through to
+                // the native parser.
+                let d;
+                if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+                    const [y, m, day] = iso.split('-').map(Number);
+                    d = new Date(y, m - 1, day);
+                } else {
+                    d = new Date(iso);
+                }
+                if (!d || isNaN(d.getTime())) return String(iso); // last-ditch: show the raw value
+                // Source data is date-only — drop the time portion to avoid
+                // "Jan 1, 1970 00:00" style noise on timezone shifts.
+                return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
             }
             function typeLabel(t) {
                 const map = { stripe_donation: 'Stripe', transferwise_fx: 'TransferWise', pix_outbound: 'Pix', stripe: 'Stripe', transferwise: 'TransferWise', pix: 'Pix' };
