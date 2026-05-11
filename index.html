@@ -352,6 +352,12 @@
         .tx-type.pix { background: var(--pix-bg); color: var(--pix-color); }
         .tx-type.other { background: var(--clay-bg); color: var(--clay); }
 
+        .tx-table .tx-description {
+            word-break: break-word;
+            min-width: 280px;
+            line-height: 1.4;
+        }
+
         .tx-table .tx-amount {
             font-family: var(--font-mono);
             font-weight: 600;
@@ -524,15 +530,13 @@
                         <th>Date</th>
                         <th>Type</th>
                         <th>Description</th>
-                        <th>Gross</th>
-                        <th>Fees</th>
-                        <th>Net</th>
+                        <th>Amount</th>
                         <th>Reference</th>
                         <th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="tx-body">
-                    <tr><td colspan="8" class="loading-state"><div class="spinner"></div><p>Loading ledger data...</p></td></tr>
+                    <tr><td colspan="6" class="loading-state"><div class="spinner"></div><p>Loading ledger data...</p></td></tr>
                 </tbody>
             </table>
         </div>
@@ -631,13 +635,27 @@
             function renderSummary(txs) {
                 let totalInflow = 0, totalFees = 0, totalNetBRL = 0;
 
+                // Detection is description-keyword + amount-sign based now that fees
+                // arrive as their own negative-amount rows (Type=Assets for every
+                // managed-ledger row). Inflows = positive amounts; fees = negative
+                // amounts whose description mentions "fee"; Pix outbound = negative
+                // amounts in BRL or with "pix" in the description.
                 txs.forEach(tx => {
-                    if (tx.type.includes('stripe') || tx.type.includes('donation') || tx.type.includes('transferwise') || tx.type.includes('tw_')) {
-                        totalInflow += tx.gross || 0;
-                    }
-                    totalFees += tx.fees || 0;
-                    if (tx.type.includes('pix') || tx.currency === 'BRL') {
-                        totalNetBRL += tx.net || 0;
+                    const amt = tx.gross || tx.amount || 0;
+                    const desc = (tx.description || '').toString().toLowerCase();
+                    const t = (tx.type || '').toString().toLowerCase();
+                    const isFee = desc.includes('fee') || t.includes('fee');
+                    const isPix = desc.includes('pix') || t.includes('pix') || t.includes('outbound');
+
+                    if (amt > 0) {
+                        // Positive amounts are inflows regardless of Type label.
+                        totalInflow += amt;
+                    } else if (isFee) {
+                        totalFees += Math.abs(amt);
+                    } else if (isPix || tx.currency === 'BRL') {
+                        totalNetBRL += Math.abs(amt);
+                    } else {
+                        totalFees += Math.abs(amt);
                     }
                 });
 
@@ -666,25 +684,21 @@
                 emptyState.classList.add('hidden');
 
                 body.innerHTML = txs.map(tx => {
-                    const grossFmt = tx.currency === 'BRL' ? fmtBRL(tx.gross) : fmtUSD(tx.gross);
-                    const feesFmt = tx.currency === 'BRL' ? fmtBRL(tx.fees) : fmtUSD(tx.fees);
-                    const netFmt = tx.currency === 'BRL' ? fmtBRL(tx.net) : fmtUSD(tx.net);
-                    const isOutbound = tx.type.includes('pix') || tx.type.includes('outbound');
-                    const grossClass = isOutbound ? 'negative' : 'positive';
+                    const amt = tx.gross || tx.amount || 0;
+                    const amtFmt = tx.currency === 'BRL' ? fmtBRL(amt) : fmtUSD(amt);
+                    const amtClass = amt < 0 ? 'negative' : (amt > 0 ? 'positive' : 'neutral');
                     const refShort = tx.reference ? (tx.reference.length > 28 ? tx.reference.slice(0, 26) + '…' : tx.reference) : '—';
 
                     return `<tr>
                         <td class="tx-date" title="${tx.date}">${fmtDate(tx.date)}</td>
                         <td><span class="tx-type ${typeClass(tx.type)}">${typeLabel(tx.type)}</span></td>
-                        <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis" title="${tx.description}">
+                        <td class="tx-description" title="${tx.description}">
                             ${tx.description || '—'}
                             ${tx.recipient ? '<br><small style="color:var(--muted);font-size:0.75rem">→ ' + tx.recipient + '</small>' : ''}
                         </td>
-                        <td class="tx-amount ${grossClass}">${grossFmt}</td>
-                        <td class="tx-amount negative">${feesFmt}</td>
-                        <td class="tx-amount ${isOutbound ? 'positive' : 'neutral'}">${netFmt}</td>
+                        <td class="tx-amount ${amtClass}">${amtFmt}</td>
                         <td><span class="tx-ref" title="${tx.reference}">${refShort}</span></td>
-                        <td><span class="tx-status ${tx.status}"><span class="dot"></span>${tx.status}</span></td>
+                        <td><span class="tx-status ${tx.status}"><span class="dot"></span>${tx.status || '—'}</span></td>
                     </tr>`;
                 }).join('');
 
